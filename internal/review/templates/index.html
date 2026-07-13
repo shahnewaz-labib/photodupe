@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>photodupe</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<header>
+  <h1>photodupe</h1>
+  <nav>
+    <button class="tab active" data-tab="run">Run</button>
+    <button class="tab" data-tab="review">Review</button>
+    <button class="tab" data-tab="settings">Settings</button>
+  </nav>
+</header>
+
+<main>
+  <!-- RUN -->
+  <section id="tab-run" class="panel active">
+    <h2>Run deduplication</h2>
+    <div class="field">
+      <label>Input folder</label>
+      <div class="row">
+        <input type="text" id="input-dir" placeholder="/path/to/photos">
+        <button data-browse="input-dir">Browse…</button>
+      </div>
+    </div>
+    <div class="field">
+      <label>Output folder (keepers copied here)</label>
+      <div class="row">
+        <input type="text" id="output-dir" placeholder="/path/to/output">
+        <button data-browse="output-dir">Browse…</button>
+      </div>
+    </div>
+    <div class="row">
+      <button id="btn-start" class="primary">Start dedup</button>
+      <span id="run-hint" class="hint"></span>
+    </div>
+
+    <div id="progress" class="progress hidden">
+      <div class="progress-head">
+        <strong id="prog-phase">—</strong>
+        <span id="prog-counts"></span>
+      </div>
+      <div class="bar"><div id="prog-fill" class="fill"></div></div>
+      <pre id="prog-log" class="log"></pre>
+    </div>
+  </section>
+
+  <!-- REVIEW -->
+  <section id="tab-review" class="panel">
+    <div class="row spread">
+      <h2>Duplicate clusters</h2>
+      <button id="btn-refresh">Refresh</button>
+    </div>
+    <p id="review-empty" class="hint">No clusters yet. Run a dedup first.</p>
+    <div id="clusters"></div>
+  </section>
+
+  <!-- SETTINGS -->
+  <section id="tab-settings" class="panel">
+    <h2>Parameters</h2>
+    <div class="field"><label><input type="checkbox" id="phash-enabled"> Enable pHash (Tier A, near-exact)</label></div>
+    <div class="field">
+      <label>pHash threshold (Hamming ≤): <span id="phash-th-val"></span></label>
+      <input type="range" id="phash-threshold" min="0" max="32" step="1">
+    </div>
+    <div class="field"><label><input type="checkbox" id="clip-enabled" disabled> Enable CLIP (Tier B, similar) <span class="hint">— coming soon, not wired yet</span></label></div>
+    <div class="field">
+      <label>CLIP similarity threshold (cosine ≥): <span id="clip-th-val"></span></label>
+      <input type="range" id="clip-threshold" min="0.5" max="1" step="0.01" disabled>
+    </div>
+    <div class="row">
+      <button id="btn-save-config" class="primary">Save params</button>
+      <button id="btn-recluster">Re-cluster (fast)</button>
+      <span id="config-hint" class="hint"></span>
+    </div>
+    <p class="hint">Tightening a threshold re-clusters instantly. Loosening below the last run needs a full re-run.</p>
+
+    <h2>Export</h2>
+    <div class="row">
+      <button id="btn-export" class="primary">Copy keepers to output folder</button>
+      <span id="export-hint" class="hint"></span>
+    </div>
+  </section>
+</main>
+
+<!-- folder browser modal -->
+<div id="browser" class="modal hidden">
+  <div class="modal-box">
+    <div class="row spread">
+      <strong id="browser-path"></strong>
+      <button id="browser-close">✕</button>
+    </div>
+    <ul id="browser-list"></ul>
+    <div class="row spread">
+      <button id="browser-up">⬆ Parent</button>
+      <button id="browser-use" class="primary">Use this folder</button>
+    </div>
+  </div>
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

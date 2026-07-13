@@ -1,0 +1,13 @@
+# build artifacts
+/photodupe
+*.exe
+*.test
+*.out
+
+# runtime caches + state
+/data/
+/models/
+/qdrant_storage/
+
+# os cruft
+.DS_Store
