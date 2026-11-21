@@ -100,7 +100,8 @@ func cmdHash(cfg config.Config) {
 		os.Exit(1)
 	}
 	th := pipeline.CacheThreshold(cfg)
-	pairs := hash.FindPairs(recs, th, nil)
+	pairs, hc := hash.FindPairsCached(recs, th, hash.LoadHashCache(hash.HashCachePath), nil)
+	_ = hash.SaveHashCache(hash.HashCachePath, hc)
 	if err := hash.SavePairs(hash.CachePath, pairs); err != nil {
 		fmt.Fprintf(os.Stderr, "hash: write pairs: %v\n", err)
 		os.Exit(1)

@@ -133,6 +133,7 @@ Everything runtime lives under `data/` (gitignored):
 |---|---|
 | `scan_cache.json` | scanned image records |
 | `tier_a.json` | perceptual-hash duplicate pairs |
+| `phash_cache.json` | each photo's hash, keyed by path + size + modified time, so re-scans only read new or changed photos |
 | `clusters.json` | duplicate groups |
 | `review_state.json` | your per-group keeper and approve/decline decisions (survives restarts) |
 | `removed_log.jsonl` | one line per file moved by Clean up approved (`from`, `to`, `time`) |

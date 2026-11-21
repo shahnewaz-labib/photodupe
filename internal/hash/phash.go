@@ -62,7 +62,16 @@ func ComputeHash(path string) (uint64, error) {
 // (tens of thousands: ~1e9 popcounts, a few seconds, one-time). Swap in a
 // BK-tree or LSH banding if n grows past ~100k.
 func FindPairs(recs []scanner.ImageRecord, threshold int, onProgress func(done, total int)) []Pair {
-	hashes := hashAll(recs, onProgress)
+	pairs, _ := FindPairsCached(recs, threshold, nil, onProgress)
+	return pairs
+}
+
+// FindPairsCached is FindPairs, reusing hashes from cache for files whose size
+// and modification time haven't changed, so re-scanning an unchanged folder
+// skips decoding. It returns the pairs and the cache for the current records
+// (stale entries dropped).
+func FindPairsCached(recs []scanner.ImageRecord, threshold int, cache HashCache, onProgress func(done, total int)) ([]Pair, HashCache) {
+	hashes, fresh := hashAll(recs, cache, onProgress)
 
 	var pairs []Pair
 	for i := 0; i < len(hashes); i++ {
@@ -77,10 +86,30 @@ func FindPairs(recs []scanner.ImageRecord, threshold int, onProgress func(done, 
 			}
 		}
 	}
-	return pairs
+	return pairs, fresh
 }
 
-func hashAll(recs []scanner.ImageRecord, onProgress func(done, total int)) []hashed {
+func hashAll(recs []scanner.ImageRecord, cache HashCache, onProgress func(done, total int)) ([]hashed, HashCache) {
+	fresh := make(HashCache, len(recs))
+	out := make([]hashed, 0, len(recs))
+	var todo []scanner.ImageRecord
+	for _, rec := range recs {
+		if e, ok := cache[rec.ID]; ok && e.matches(rec) {
+			out = append(out, hashed{id: rec.ID, hash: e.Hash})
+			fresh[rec.ID] = e
+		} else {
+			todo = append(todo, rec)
+		}
+	}
+	done := len(out)
+	if onProgress != nil && done > 0 {
+		onProgress(done, len(recs))
+	}
+	byID := make(map[uint64]scanner.ImageRecord, len(todo))
+	for _, rec := range todo {
+		byID[rec.ID] = rec
+	}
+
 	workers := runtime.NumCPU()
 	jobs := make(chan scanner.ImageRecord)
 	results := make(chan hashed)
@@ -102,7 +131,7 @@ func hashAll(recs []scanner.ImageRecord, onProgress func(done, total int)) []has
 	}
 
 	go func() {
-		for _, rec := range recs {
+		for _, rec := range todo {
 			jobs <- rec
 		}
 		close(jobs)
@@ -113,10 +142,9 @@ func hashAll(recs []scanner.ImageRecord, onProgress func(done, total int)) []has
 		close(results)
 	}()
 
-	out := make([]hashed, 0, len(recs))
-	done := 0
 	for h := range results {
 		out = append(out, h)
+		fresh[h.id] = entryFor(byID[h.id], h.hash)
 		done++
 		if onProgress != nil {
 			onProgress(done, len(recs))
@@ -124,5 +152,5 @@ func hashAll(recs []scanner.ImageRecord, onProgress func(done, total int)) []has
 	}
 	// Stable order so pair output is deterministic across runs.
 	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
-	return out
+	return out, fresh
 }

@@ -40,6 +40,7 @@ type ImageRecord struct {
 	Filename    string    `json:"filename"`
 	CaptureTime time.Time `json:"capture_time"`
 	FileSize    int64     `json:"file_size"`
+	ModTime     time.Time `json:"mod_time"` // file mtime; with FileSize, decides if a cached hash is still valid
 	Width       int       `json:"width"`
 	Height      int       `json:"height"`
 	IsHEIC      bool      `json:"is_heic"`
@@ -159,6 +160,7 @@ func buildRecord(path, heifConvert string) (ImageRecord, error) {
 		WorkPath: absPath,
 		Filename: filepath.Base(absPath),
 		FileSize: fi.Size(),
+		ModTime:  fi.ModTime(),
 		IsHEIC:   isHEIC(strings.ToLower(filepath.Ext(absPath))),
 	}
 

@@ -164,6 +164,7 @@ main { padding: 48px 16px 64px; }
 .main-col { flex: 999 1 560px; min-width: 0; }
 .aside { flex: 1 1 280px; min-width: 0; }
 .intro { display: flex; flex-direction: column; }
+.resume { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; border-color: var(--border-keep); }
 
 /* ---------- top bar ---------- */
 .topbar {
@@ -470,3 +471,6 @@ body:has(#view-review:not([hidden])) .toast { bottom: 96px; }
   body:has(#view-review:not([hidden])) .toast { bottom: 140px; }
   .card { padding: 18px; }
 }
+.warn-text { color: var(--warn-fg); }
+.btn-warn-solid { border-color: var(--warn-border); background: var(--warn-bg); color: var(--warn-fg); font-weight: 700; }
+.btn-warn-solid:not(:disabled):hover { border-color: var(--warn-fg); background: var(--warn-bg); }

@@ -37,6 +37,17 @@
       <p class="lede">Pick a folder. photodupe finds the extra copies and makes a clean copy of the folder without them.</p>
     </div>
 
+    <section id="have-results" class="card resume" aria-labelledby="have-title" hidden>
+      <div class="stack-sm">
+        <h2 id="have-title" class="h3">Your results are saved</h2>
+        <p id="have-text" class="muted"></p>
+      </div>
+      <button type="button" class="btn btn-primary btn-lg" data-go="results">
+        Back to results
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
+    </section>
+
     <section class="card stack" aria-label="Photo folder">
       <div class="field">
         <label for="in-path" class="field-label">Photo folder</label>
@@ -59,10 +70,11 @@
           <div id="pre-level" class="seg seg-sm" role="group" aria-labelledby="pre-level-label"></div>
         </div>
         <button type="button" id="btn-find" class="btn btn-primary btn-lg" disabled>
-          Find duplicates
+          <span id="btn-find-label">Find duplicates</span>
           <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
         </button>
       </div>
+      <p id="find-note" class="muted small" hidden></p>
       <p id="find-error" class="error-text" hidden></p>
     </section>
 
@@ -355,6 +367,18 @@
     <div class="row spread">
       <button type="button" id="clean-cancel" class="btn">Cancel</button>
       <button type="button" id="clean-go" class="btn btn-primary">Move them</button>
+    </div>
+  </div>
+</div>
+
+<!-- confirm before replacing results -->
+<div id="confirm" class="modal" hidden>
+  <div class="modal-box stack-sm" role="alertdialog" aria-modal="true" aria-labelledby="confirm-title" aria-describedby="confirm-text">
+    <h2 id="confirm-title" class="h3"></h2>
+    <p id="confirm-text"></p>
+    <div class="row spread">
+      <button type="button" id="confirm-no" class="btn">Keep my results</button>
+      <button type="button" id="confirm-yes" class="btn btn-warn-solid"></button>
     </div>
   </div>
 </div>

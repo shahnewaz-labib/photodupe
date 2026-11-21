@@ -42,7 +42,8 @@ func RunAll(cfg config.Config, embedder Embedder, prog *Progress) error {
 	if cfg.PHashEnabled {
 		prog.setPhase("hash")
 		th := CacheThreshold(cfg)
-		pairs := hash.FindPairs(recs, th, prog.update)
+		pairs, hc := hash.FindPairsCached(recs, th, hash.LoadHashCache(hash.HashCachePath), prog.update)
+		_ = hash.SaveHashCache(hash.HashCachePath, hc) // a lost cache only costs speed
 		if err := hash.SavePairs(hash.CachePath, pairs); err != nil {
 			runErr = fmt.Errorf("hash cache: %w", err)
 			return runErr

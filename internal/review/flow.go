@@ -140,6 +140,7 @@ type summaryResp struct {
 	KeptAll    int      `json:"kept_all"` // groups marked "not duplicates"
 	Reviewed   int      `json:"reviewed"`
 	Approved   int      `json:"approved"`    // groups approved and not yet cleaned up
+	Decided    int      `json:"decided"`     // groups with any saved choice (keeper, approve, decline)
 	RemovedDir string   `json:"removed_dir"` // where clean-up moves left-out copies
 	Threshold  int      `json:"threshold"`
 	Level      string   `json:"level"` // matching StrictnessLevel name, or "custom"
@@ -186,6 +187,9 @@ func (s *Server) handleSummary(w http.ResponseWriter, r *http.Request) {
 		}
 		if dec.Approved && !dec.Skipped {
 			sum.Approved++
+		}
+		if dec != (cluster.ClusterDecision{}) {
+			sum.Decided++
 		}
 		switch {
 		case dec.Skipped:

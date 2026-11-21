@@ -184,8 +184,17 @@ let inCheckSeq = 0;
 
 async function showChoose() {
   const input = $("#in-path");
-  const [cfg, strict] = await Promise.all([api("/api/config"), loadStrictness()]);
-  if (!input.value) input.value = cfg.input_dir || "";
+  const [cfg, strict, sum] = await Promise.all([api("/api/config"), loadStrictness(), state.summary || loadSummary()]);
+  // Coming back here must never feel like starting over: offer the way back.
+  $("#have-results").hidden = !sum.has_results;
+  if (sum.has_results) {
+    const bits = [sum.input_dir, plural(sum.groups, "group")];
+    if (sum.decided) bits.push(`${plural(sum.decided, "choice")} saved`);
+    $("#have-text").textContent = bits.join(" · ");
+  }
+  // Always start from the folder the saved results belong to, so a path typed
+  // earlier and abandoned never lingers as a one-click "replace".
+  if (cfg.input_dir || !input.value) input.value = cfg.input_dir || "";
   preLevel = strict.current === "custom" ? "standard" : strict.current;
   renderPreLevel(strict.levels);
 
@@ -231,6 +240,7 @@ async function checkInput() {
   btn.disabled = true;
   if (!path) {
     info.hidden = true;
+    renderFindMode();
     return;
   }
   const seq = ++inCheckSeq;
@@ -259,6 +269,7 @@ async function checkInput() {
   }
   inFolder = f;
   btn.disabled = false;
+  renderFindMode();
   const parts = [
     `<strong>${ICON.check}${plural(f.photos, "photo")}${f.truncated ? "+" : ""}</strong>`,
     `<span>${fmtBytes(f.bytes)}</span>`,
@@ -268,8 +279,57 @@ async function checkInput() {
   info.innerHTML = parts.join("");
 }
 
+// findMode: "new" (no results yet), "rescan" (same folder as the saved
+// results: decisions are kept), or "replace" (a different folder).
+function findMode() {
+  const sum = state.summary;
+  if (!sum?.has_results || !inFolder) return "new";
+  return inFolder.path === sum.input_dir ? "rescan" : "replace";
+}
+
+function renderFindMode() {
+  const mode = findMode();
+  const sum = state.summary;
+  const note = $("#find-note");
+  $("#btn-find-label").textContent = mode === "rescan" ? "Scan again" : "Find duplicates";
+  note.hidden = mode === "new";
+  note.className = mode === "replace" ? "small warn-text" : "muted small";
+  if (mode === "rescan") note.textContent = "Only new or changed photos are read again. Your choices are kept.";
+  if (mode === "replace") note.textContent = `This replaces your results for ${sum.input_dir}${sum.decided ? `, including ${plural(sum.decided, "saved choice")}` : ""}.`;
+}
+
+function confirmDialog({ title, text, yes }) {
+  return new Promise((resolve) => {
+    $("#confirm-title").textContent = title;
+    $("#confirm-text").textContent = text;
+    $("#confirm-yes").textContent = yes;
+    const done = (v) => {
+      hideModal("#confirm");
+      $("#confirm-yes").onclick = $("#confirm-no").onclick = $("#confirm").onclick = null;
+      confirmCancel = null;
+      resolve(v);
+    };
+    $("#confirm-yes").onclick = () => done(true);
+    $("#confirm-no").onclick = () => done(false);
+    $("#confirm").onclick = (e) => e.target.id === "confirm" && done(false);
+    confirmCancel = () => done(false);
+    showModal("#confirm");
+    $("#confirm-no").focus(); // the safe choice is the default
+  });
+}
+let confirmCancel = null;
+
 $("#btn-find").addEventListener("click", async () => {
   if (!inFolder) return;
+  if (findMode() === "replace") {
+    const sum = state.summary;
+    const ok = await confirmDialog({
+      title: "Start over with a different folder?",
+      text: `Your results for ${sum.input_dir}${sum.decided ? ` and ${plural(sum.decided, "saved choice")}` : ""} will be replaced by a new scan of ${inFolder.path}.`,
+      yes: "Replace my results",
+    });
+    if (!ok) return;
+  }
   const btn = $("#btn-find");
   btn.disabled = true;
   try {
@@ -882,7 +942,8 @@ $("#compare").addEventListener("click", (e) => {
 document.addEventListener("keydown", (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if (e.key === "Escape") {
-    if (!$("#clean").hidden) hideModal("#clean");
+    if (!$("#confirm").hidden) confirmCancel?.();
+    else if (!$("#clean").hidden) hideModal("#clean");
     else if (!$("#compare").hidden) hideModal("#compare");
     else if (!$("#browser").hidden) hideModal("#browser");
     return;
