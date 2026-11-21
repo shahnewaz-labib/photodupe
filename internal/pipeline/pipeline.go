@@ -41,12 +41,14 @@ func RunAll(cfg config.Config, embedder Embedder, prog *Progress) error {
 	// hash (Tier A)
 	if cfg.PHashEnabled {
 		prog.setPhase("hash")
-		pairs := hash.FindPairs(recs, cfg.PHashThreshold, prog.update)
+		th := CacheThreshold(cfg)
+		pairs, hc := hash.FindPairsCached(recs, th, hash.LoadHashCache(hash.HashCachePath), prog.update)
+		_ = hash.SaveHashCache(hash.HashCachePath, hc) // a lost cache only costs speed
 		if err := hash.SavePairs(hash.CachePath, pairs); err != nil {
 			runErr = fmt.Errorf("hash cache: %w", err)
 			return runErr
 		}
-		_ = SaveMeta(cfg) // record threshold used, for the loosening warning
+		_ = SaveMeta(th) // record cached threshold, for the loosening warning
 		prog.Logf(fmt.Sprintf("found %d Tier A pairs", len(pairs)))
 	}
 

@@ -34,7 +34,6 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	cfg := s.cfg
-	embedder := s.embedder
 	s.mu.Unlock()
 
 	if cfg.InputDir == "" {
@@ -42,10 +41,7 @@ func (s *Server) handleRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go func() {
-		_ = pipeline.RunAll(cfg, embedder, s.prog)
-		s.reload()
-	}()
+	s.startRun(cfg)
 	writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
 }
 
@@ -55,12 +51,14 @@ func (s *Server) handleRecluster(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 
 	warning := pipeline.LooseningWarning(cfg)
+	old := s.snapshotClusters()
 	clusters, err := pipeline.Recluster(cfg)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.reload()
+	s.carryDecisions(old)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"clusters": len(clusters),
 		"warning":  warning,
@@ -74,6 +72,8 @@ type memberView struct {
 	ID          uint64 `json:"id,string"`
 	Filename    string `json:"filename"`
 	Path        string `json:"path"`
+	Folder      string `json:"folder"` // directory relative to the input folder
+	IsHEIC      bool   `json:"is_heic"`
 	Width       int    `json:"width"`
 	Height      int    `json:"height"`
 	FileSize    int64  `json:"file_size"`
@@ -82,10 +82,11 @@ type memberView struct {
 }
 
 type clusterView struct {
-	ID       string                  `json:"id"`
-	Tiers    []string                `json:"tiers"`
-	Members  []memberView            `json:"members"`
-	Decision cluster.ClusterDecision `json:"decision"`
+	ID          string                  `json:"id"`
+	Tiers       []string                `json:"tiers"`
+	SuggestedID uint64                  `json:"suggested_id,string"`
+	Members     []memberView            `json:"members"`
+	Decision    cluster.ClusterDecision `json:"decision"`
 }
 
 func (s *Server) handleClusters(w http.ResponseWriter, r *http.Request) {
@@ -102,9 +103,10 @@ func (s *Server) handleClusters(w http.ResponseWriter, r *http.Request) {
 		}
 		dec := s.decisions[c.ID]
 
+		suggested := keeper.SuggestKeeper(members, s.cfg.KeeperOrder).ID
 		keeperID := dec.KeeperID
-		if keeperID == 0 && len(members) > 0 {
-			keeperID = keeper.SuggestKeeper(members, s.cfg.KeeperOrder).ID
+		if keeperID == 0 || !containsID(c.MemberIDs, keeperID) {
+			keeperID = suggested
 		}
 
 		mv := make([]memberView, 0, len(members))
@@ -113,6 +115,8 @@ func (s *Server) handleClusters(w http.ResponseWriter, r *http.Request) {
 				ID:          rec.ID,
 				Filename:    rec.Filename,
 				Path:        rec.AbsPath,
+				Folder:      relFolder(s.cfg.InputDir, rec.AbsPath),
+				IsHEIC:      rec.IsHEIC,
 				Width:       rec.Width,
 				Height:      rec.Height,
 				FileSize:    rec.FileSize,
@@ -120,9 +124,26 @@ func (s *Server) handleClusters(w http.ResponseWriter, r *http.Request) {
 				Keeper:      rec.ID == keeperID && !dec.Skipped,
 			})
 		}
-		views = append(views, clusterView{ID: c.ID, Tiers: c.Tiers, Members: mv, Decision: dec})
+		views = append(views, clusterView{ID: c.ID, Tiers: c.Tiers, SuggestedID: suggested, Members: mv, Decision: dec})
 	}
 	writeJSON(w, http.StatusOK, views)
+}
+
+// relFolder returns abs's directory relative to inputDir ("" for the root),
+// falling back to the absolute directory.
+func relFolder(inputDir, abs string) string {
+	dir := filepath.Dir(abs)
+	if inputDir != "" {
+		if in, err := filepath.Abs(inputDir); err == nil {
+			if rel, err := filepath.Rel(in, dir); err == nil && within(dir, in) {
+				if rel == "." {
+					return ""
+				}
+				return filepath.ToSlash(rel)
+			}
+		}
+	}
+	return dir
 }
 
 func (s *Server) handleDecision(w http.ResponseWriter, r *http.Request) {
@@ -269,6 +290,8 @@ func (s *Server) handleSetConfig(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, cfg)
 }
 
+// handleExport validates the folders, then copies keepers in the background;
+// the UI polls GET /api/export/status for progress and the final report.
 func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	cfg := s.cfg
@@ -283,10 +306,34 @@ func (s *Server) handleExport(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
-	rep, err := export.Export(cfg, recs, clusters, decisions, nil)
-	if err != nil {
+	if err := export.ValidateDirs(cfg.InputDir, cfg.OutputDir); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, http.StatusOK, rep)
+
+	s.expMu.Lock()
+	if s.exp.Running {
+		s.expMu.Unlock()
+		http.Error(w, "an export is already running", http.StatusConflict)
+		return
+	}
+	s.exp = exportState{Running: true, Output: cfg.OutputDir}
+	s.expMu.Unlock()
+
+	go func() {
+		rep, err := export.Export(cfg, recs, clusters, decisions, func(done, total int) {
+			s.expMu.Lock()
+			s.exp.Done, s.exp.Total = done, total
+			s.expMu.Unlock()
+		})
+		s.expMu.Lock()
+		s.exp.Running = false
+		if err != nil {
+			s.exp.Error = err.Error()
+		} else {
+			s.exp.Report = &rep
+		}
+		s.expMu.Unlock()
+	}()
+	writeJSON(w, http.StatusAccepted, map[string]string{"status": "started"})
 }

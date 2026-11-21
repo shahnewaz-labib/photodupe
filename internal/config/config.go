@@ -16,6 +16,9 @@ const DefaultPath = "data/config.json"
 type Config struct {
 	InputDir  string `json:"input_dir"`
 	OutputDir string `json:"output_dir"`
+	// RemovedDir is where "clean up approved groups" moves left-out copies.
+	// "" => a sibling of InputDir named "<input>-removed".
+	RemovedDir string `json:"removed_dir"`
 
 	QdrantAddr  string `json:"qdrant_addr"`   // gRPC addr, see PLAN Phase 4
 	ModelPath   string `json:"model_path"`    // CLIP ONNX model
@@ -33,6 +36,30 @@ type Config struct {
 	KeeperOrder []string `json:"keeper_order"` // e.g. ["resolution","filesize","earliest"]
 
 	ServerAddr string `json:"server_addr"`
+}
+
+// StrictnessLevel is a plain-language name for a pHash threshold, shown in the
+// UI instead of raw Hamming distances.
+type StrictnessLevel struct {
+	Name      string `json:"name"`
+	Threshold int    `json:"threshold"`
+}
+
+// StrictnessLevels are the UI's match levels, strictest first. The pipeline
+// caches pairs up to the loosest level so switching levels never re-hashes.
+var StrictnessLevels = []StrictnessLevel{
+	{Name: "strict", Threshold: 5},
+	{Name: "standard", Threshold: 10},
+	{Name: "loose", Threshold: 14},
+}
+
+// LoosestThreshold is the highest threshold among StrictnessLevels.
+func LoosestThreshold() int {
+	m := 0
+	for _, l := range StrictnessLevels {
+		m = max(m, l.Threshold)
+	}
+	return m
 }
 
 // Default returns the built-in defaults. Thresholds are starting points, tuned

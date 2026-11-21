@@ -43,8 +43,9 @@ type Cluster struct {
 // KeeperID is serialized as a string (uint64 exceeds JS safe-int range).
 type ClusterDecision struct {
 	KeeperID uint64 `json:"keeper_id,string"` // 0 => fall back to the heuristic
-	Skipped  bool   `json:"skipped"`          // true => treat all members as uniques (keep all)
-	Resolved bool   `json:"resolved"`         // user has reviewed this cluster
+	Skipped  bool   `json:"skipped"`          // true => declined: treat all members as uniques (keep all)
+	Approved bool   `json:"approved"`         // true => user approved dropping the non-keepers
+	Resolved bool   `json:"resolved"`         // user has approved or declined this cluster
 }
 
 // Build merges surviving Tier A and Tier B pairs into clusters. Thresholds are

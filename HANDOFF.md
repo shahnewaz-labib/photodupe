@@ -121,8 +121,11 @@ dispatch.
 - `cluster.SimPair{AID,BID uint64; Score float32}` — Tier B pair shape; a future
   embedder must write `data/tier_b.json` in exactly this shape.
 - `cluster.Cluster{ID string; Tiers []string; MemberIDs []uint64}` — matches PLAN.
-- `cluster.ClusterDecision{KeeperID uint64 (json ",string"); Skipped, Resolved
-  bool}` — `keeper_id` is a **string** in JSON.
+- `cluster.ClusterDecision{KeeperID uint64 (json ",string"); Skipped, Approved,
+  Resolved bool}` — `keeper_id` is a **string** in JSON. Skipped = declined
+  (keep all); Approved = drop the non-keepers; Resolved = either verdict given.
+  On re-cluster a verdict carries over only if the group's members are
+  unchanged; a picked keeper carries over while it is still a member.
 
 ### HTTP API (all under the UI server)
 | Method + path | Purpose |
@@ -137,7 +140,13 @@ dispatch.
 | `GET /api/image?id=&thumb=` | serve full image or cached thumbnail |
 | `GET /api/browse?path=` | list subdirectories (server-side folder picker) |
 | `GET /api/config` / `POST /api/config` | read/write params |
-| `POST /api/export` | copy keepers → output dir; returns `export.Report` |
+| `POST /api/export` | validate dirs, then copy keepers → output dir in the background (202) |
+| `GET /api/export/status` | export progress + final `export.Report` |
+| `GET /api/folder?path=&role=` | photo count/size for a folder; `role=output` adds existence/emptiness + guardrail conflict |
+| `GET /api/summary` | what an export would do now (keep/extra counts + bytes, auto/changed/kept-all), via `export.KeeperSet` |
+| `GET /api/strictness` / `POST /api/strictness` | preview group counts per Strict/Standard/Loose level; switch level (re-cluster, or re-scan if uncached) |
+| `POST /api/clean` | move left-out copies of approved groups to `removed_dir` (default `<input>-removed`), log to `data/removed_log.jsonl`, drop them from caches, re-cluster; returns `{groups, moved, bytes, dest, failed}` |
+| `POST /api/open` | open `cfg.OutputDir` in the OS file manager (never a client path) |
 
 ---
 
@@ -213,9 +222,9 @@ Docker for Qdrant. Document per-OS setup. Linux is the guaranteed target.
   many images will be heavy in the DOM. Add lazy rendering / pagination if needed.
 - **`heif-convert` runs one process per HEIC file** (serial in the scan loop).
   Fine for now; parallelize if HEIC-heavy libraries are slow.
-- **No "resolved/pending" filter** in Review, and no next/prev navigation between
-  clusters (PLAN §7.1 mentioned these). Currently it renders all clusters in one
-  scrolling list.
+- **Clean up approved has no in-app undo.** Moves are logged in
+  `data/removed_log.jsonl` (`from`/`to`); a "restore" action could replay it
+  in reverse. Google Takeout `.json` sidecars of moved photos are left in place.
 
 ---
 

@@ -29,50 +29,14 @@ type Report struct {
 func Export(cfg config.Config, records []scanner.ImageRecord, clusters []cluster.Cluster,
 	decisions map[string]cluster.ClusterDecision, onProgress func(done, total int)) (Report, error) {
 
-	if err := validateDirs(cfg.InputDir, cfg.OutputDir); err != nil {
+	if err := ValidateDirs(cfg.InputDir, cfg.OutputDir); err != nil {
 		return Report{}, err
 	}
 	if err := os.MkdirAll(cfg.OutputDir, 0o755); err != nil {
 		return Report{}, fmt.Errorf("create output dir: %w", err)
 	}
 
-	byID := make(map[uint64]scanner.ImageRecord, len(records))
-	for _, r := range records {
-		byID[r.ID] = r
-	}
-
-	keeperIDs := map[uint64]bool{}
-	clustered := map[uint64]bool{}
-
-	for _, c := range clusters {
-		members := make([]scanner.ImageRecord, 0, len(c.MemberIDs))
-		for _, id := range c.MemberIDs {
-			clustered[id] = true
-			if r, ok := byID[id]; ok {
-				members = append(members, r)
-			}
-		}
-		dec := decisions[c.ID]
-		if dec.Skipped {
-			// "not actually duplicates" => keep all members.
-			for _, id := range c.MemberIDs {
-				keeperIDs[id] = true
-			}
-			continue
-		}
-		if dec.KeeperID != 0 && contains(c.MemberIDs, dec.KeeperID) {
-			keeperIDs[dec.KeeperID] = true
-		} else {
-			keeperIDs[keeper.SuggestKeeper(members, cfg.KeeperOrder).ID] = true
-		}
-	}
-
-	// Every image not in any cluster is a unique => always kept.
-	for _, r := range records {
-		if !clustered[r.ID] {
-			keeperIDs[r.ID] = true
-		}
-	}
+	keeperIDs := KeeperSet(cfg, records, clusters, decisions)
 
 	// Copy keepers.
 	used := map[string]bool{}
@@ -101,9 +65,56 @@ func Export(cfg config.Config, records []scanner.ImageRecord, clusters []cluster
 	return rep, nil
 }
 
-// validateDirs enforces the safety guardrails (PLAN §6b step 4): output must be
+// KeeperSet returns the IDs export would copy: each cluster's keeper (the
+// user's choice, else the heuristic), every member of a cluster marked "not
+// duplicates", and every image in no cluster. It touches no files, so the UI
+// uses it to preview an export.
+func KeeperSet(cfg config.Config, records []scanner.ImageRecord, clusters []cluster.Cluster,
+	decisions map[string]cluster.ClusterDecision) map[uint64]bool {
+
+	byID := make(map[uint64]scanner.ImageRecord, len(records))
+	for _, r := range records {
+		byID[r.ID] = r
+	}
+
+	keeperIDs := map[uint64]bool{}
+	clustered := map[uint64]bool{}
+
+	for _, c := range clusters {
+		members := make([]scanner.ImageRecord, 0, len(c.MemberIDs))
+		for _, id := range c.MemberIDs {
+			clustered[id] = true
+			if r, ok := byID[id]; ok {
+				members = append(members, r)
+			}
+		}
+		dec := decisions[c.ID]
+		if dec.Skipped {
+			// "not actually duplicates" => keep all members.
+			for _, id := range c.MemberIDs {
+				keeperIDs[id] = true
+			}
+			continue
+		}
+		if dec.KeeperID != 0 && contains(c.MemberIDs, dec.KeeperID) {
+			keeperIDs[dec.KeeperID] = true
+		} else if len(members) > 0 {
+			keeperIDs[keeper.SuggestKeeper(members, cfg.KeeperOrder).ID] = true
+		}
+	}
+
+	// Every image not in any cluster is a unique => always kept.
+	for _, r := range records {
+		if !clustered[r.ID] {
+			keeperIDs[r.ID] = true
+		}
+	}
+	return keeperIDs
+}
+
+// ValidateDirs enforces the safety guardrails (PLAN §6b step 4): output must be
 // set, must differ from input, and must not be an ancestor of input.
-func validateDirs(inputDir, outputDir string) error {
+func ValidateDirs(inputDir, outputDir string) error {
 	if strings.TrimSpace(outputDir) == "" {
 		return fmt.Errorf("output dir is empty")
 	}

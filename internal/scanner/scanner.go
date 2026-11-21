@@ -40,6 +40,7 @@ type ImageRecord struct {
 	Filename    string    `json:"filename"`
 	CaptureTime time.Time `json:"capture_time"`
 	FileSize    int64     `json:"file_size"`
+	ModTime     time.Time `json:"mod_time"` // file mtime; with FileSize, decides if a cached hash is still valid
 	Width       int       `json:"width"`
 	Height      int       `json:"height"`
 	IsHEIC      bool      `json:"is_heic"`
@@ -56,6 +57,12 @@ var imageExts = map[string]bool{
 	".jpg": true, ".jpeg": true, ".png": true, ".gif": true,
 	".webp": true, ".bmp": true, ".heic": true, ".heif": true,
 }
+
+// IsImageExt reports whether ext (with dot, any case) is a supported image type.
+func IsImageExt(ext string) bool { return imageExts[strings.ToLower(ext)] }
+
+// IsHEICExt reports whether ext (with dot, any case) is HEIC/HEIF.
+func IsHEICExt(ext string) bool { return isHEIC(strings.ToLower(ext)) }
 
 func isHEIC(ext string) bool { return ext == ".heic" || ext == ".heif" }
 
@@ -153,6 +160,7 @@ func buildRecord(path, heifConvert string) (ImageRecord, error) {
 		WorkPath: absPath,
 		Filename: filepath.Base(absPath),
 		FileSize: fi.Size(),
+		ModTime:  fi.ModTime(),
 		IsHEIC:   isHEIC(strings.ToLower(filepath.Ext(absPath))),
 	}
 

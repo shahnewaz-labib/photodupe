@@ -29,6 +29,11 @@ type Server struct {
 	records   map[uint64]scanner.ImageRecord
 	clusters  []cluster.Cluster
 	decisions map[string]cluster.ClusterDecision
+
+	expMu sync.Mutex
+	exp   exportState
+
+	cleanMu sync.Mutex // held while a clean-up moves files
 }
 
 // New builds a Server. embedder may be nil (pHash-only). It loads any existing
@@ -61,6 +66,14 @@ func (s *Server) reload() {
 		s.clusters = cl
 	}
 	if dec, err := cluster.LoadDecisions(cluster.StatePath); err == nil {
+		// Older versions marked a group Resolved just by moving past it. Only an
+		// explicit approve or decline counts now, so those go back to pending.
+		for id, d := range dec {
+			if d.Resolved && !d.Approved && !d.Skipped {
+				d.Resolved = false
+				dec[id] = d
+			}
+		}
 		s.decisions = dec
 	}
 }
@@ -77,6 +90,7 @@ func (s *Server) Handler() http.Handler {
 	// API.
 	mux.HandleFunc("GET /api/status", s.handleStatus)
 	mux.HandleFunc("POST /api/run", s.handleRun)
+	mux.HandleFunc("POST /api/clean", s.handleClean)
 	mux.HandleFunc("POST /api/recluster", s.handleRecluster)
 	mux.HandleFunc("GET /api/clusters", s.handleClusters)
 	mux.HandleFunc("POST /api/clusters/{id}/decision", s.handleDecision)
@@ -85,6 +99,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/config", s.handleGetConfig)
 	mux.HandleFunc("POST /api/config", s.handleSetConfig)
 	mux.HandleFunc("POST /api/export", s.handleExport)
+	mux.HandleFunc("GET /api/export/status", s.handleExportStatus)
+	mux.HandleFunc("GET /api/folder", s.handleFolder)
+	mux.HandleFunc("GET /api/summary", s.handleSummary)
+	mux.HandleFunc("GET /api/strictness", s.handleStrictness)
+	mux.HandleFunc("POST /api/strictness", s.handleSetStrictness)
+	mux.HandleFunc("POST /api/open", s.handleOpen)
 
 	return mux
 }
