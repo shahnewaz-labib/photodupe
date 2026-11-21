@@ -57,6 +57,12 @@ var imageExts = map[string]bool{
 	".webp": true, ".bmp": true, ".heic": true, ".heif": true,
 }
 
+// IsImageExt reports whether ext (with dot, any case) is a supported image type.
+func IsImageExt(ext string) bool { return imageExts[strings.ToLower(ext)] }
+
+// IsHEICExt reports whether ext (with dot, any case) is HEIC/HEIF.
+func IsHEICExt(ext string) bool { return isHEIC(strings.ToLower(ext)) }
+
 func isHEIC(ext string) bool { return ext == ".heic" || ext == ".heif" }
 
 // idFor returns a stable point ID for a path (FNV-1a 64), used as the Qdrant

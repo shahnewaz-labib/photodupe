@@ -40,6 +40,11 @@ func (p *Progress) start() {
 	p.errMsg = ""
 }
 
+// Begin marks a run as started. RunAll does this itself; callers that launch
+// RunAll in a goroutine call Begin first so pollers never see a stale idle
+// state between the request returning and the goroutine starting.
+func (p *Progress) Begin() { p.start() }
+
 // Running reports whether a run is in progress.
 func (p *Progress) Running() bool {
 	p.mu.Lock()

@@ -20,12 +20,18 @@ type RunMeta struct {
 	PHashThreshold int `json:"phash_threshold"`
 }
 
-// SaveMeta records the run parameters.
-func SaveMeta(cfg config.Config) error {
+// CacheThreshold is the pHash threshold pairs are cached at: the configured
+// one, widened to the loosest UI level so every level re-clusters instantly.
+func CacheThreshold(cfg config.Config) int {
+	return max(cfg.PHashThreshold, config.LoosestThreshold())
+}
+
+// SaveMeta records the threshold the pair cache was generated with.
+func SaveMeta(cacheThreshold int) error {
 	if err := os.MkdirAll(filepath.Dir(MetaPath), 0o755); err != nil {
 		return err
 	}
-	b, err := json.MarshalIndent(RunMeta{PHashThreshold: cfg.PHashThreshold}, "", "  ")
+	b, err := json.MarshalIndent(RunMeta{PHashThreshold: cacheThreshold}, "", "  ")
 	if err != nil {
 		return err
 	}

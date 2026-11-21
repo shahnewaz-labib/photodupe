@@ -1,9 +1,10 @@
 # photodupe
 
 Find duplicate and near-duplicate photos in a local folder, review them in a web
-UI, and copy the ones you want to keep into a new folder. **Your source files are
-never modified, moved, or deleted** — photodupe only reads them and writes copies
-of the keepers elsewhere.
+UI, and copy the ones you want to keep into a new folder. **Nothing is ever
+deleted.** photodupe only reads your source folder, with one opt-in exception:
+**Clean up approved** moves the left-out copies of groups you approved into a
+separate holding folder, from which they can be moved back.
 
 No cloud, no account, no Google Photos API. Everything runs locally.
 
@@ -43,14 +44,26 @@ The web UI is the easiest way in:
 ./photodupe ui        # serves http://localhost:8080
 ```
 
-Then in the browser:
-1. **Run** tab — pick your input folder and an (empty) output folder, click
-   **Start dedup**, watch progress.
-2. **Review** tab — each duplicate group shows its photos side by side with the
-   suggested keeper highlighted. Change the keeper, or mark a group "not actually
-   duplicates". Save.
-3. **Settings** tab — tweak the pHash threshold, re-cluster instantly, and
-   **copy keepers to the output folder**.
+Then in the browser, four steps:
+1. **Choose photos**: pick your photo folder. photodupe counts the photos
+   straight away. Optionally set match strictness (Strict / Standard / Loose).
+2. **Scan**: watch progress as it reads, compares and groups your photos.
+3. **Results**: see how many extra copies were found and how much space a
+   clean copy saves. photodupe has already picked the best copy in each group,
+   so reviewing is optional. Switch strictness here, and the numbers update
+   instantly. To check the picks, open **Review groups**: click a photo (or press
+   `1`–`9`) to keep it, then **Approve** (`A`) or **Decline, keep all** (`D`, for
+   "not duplicates"). Both move on to the next group. `Space` compares side by
+   side, `←` / `→` go back or skip, and `Z` undoes. Tabs filter by To review,
+   Worth a look, Approved and Declined.
+   - **Clean up approved** (optional, any time) moves the left-out copies of
+     every approved group out of your photo folder into `<photo folder>-removed`
+     (or `removed_dir` in `config.json`). Subfolders are kept, nothing is
+     deleted, the photo you kept stays put, and every move is logged in
+     `data/removed_log.jsonl`. Cleaned groups disappear from the review.
+4. **Save copies**: pick an output folder (asked only here), see exactly what
+   will be copied and left out, then copy. When it's done, **Open folder**
+   opens the result.
 
 ### CLI (scriptable)
 
@@ -89,7 +102,11 @@ largest file size → earliest capture time → path order.
 
 ## Safety
 
-- Source files are opened read-only. photodupe never writes into the input tree.
+- Source files are opened read-only, and nothing is ever deleted. The only
+  action that changes the input folder is **Clean up approved**: it *moves*
+  the left-out copies of approved groups to the holding folder, and only after
+  checking that the photo being kept still exists. The holding folder may not
+  be inside the input folder (a re-scan would find the copies again).
 - Export refuses to run if the output folder is empty, equals the input folder,
   or is a parent of it.
 - Output filename collisions get a numeric suffix (`img (2).jpg`); nothing is
@@ -101,8 +118,11 @@ largest file size → earliest capture time → path order.
 Tunable in the Settings tab or `data/config.json`:
 
 - `phash_threshold` (default 10) — max Hamming distance for a Tier A match.
-  Lower = stricter. **Tightening re-clusters instantly; loosening beyond the last
-  run needs a full re-run** (the UI warns you).
+  Lower = stricter. The UI shows this as Strict (5) / Standard (10) / Loose (14).
+  Scans cache pairs up to the Loose level, so switching between those levels
+  re-clusters instantly; going looser than the cached level needs a re-scan
+  (the UI offers it). Saved review decisions follow their groups across
+  re-clusters.
 - `keeper_order` — the keeper ranking criteria.
 
 ## Data & caches
@@ -114,9 +134,11 @@ Everything runtime lives under `data/` (gitignored):
 | `scan_cache.json` | scanned image records |
 | `tier_a.json` | perceptual-hash duplicate pairs |
 | `clusters.json` | duplicate groups |
-| `review_state.json` | your per-group keep/skip decisions (survives restarts) |
+| `review_state.json` | your per-group keeper and approve/decline decisions (survives restarts) |
+| `removed_log.jsonl` | one line per file moved by Clean up approved (`from`, `to`, `time`) |
 | `config.json` | current parameters |
 | `heic_cache/` | JPEGs converted from HEIC |
 | `thumbs/` | review thumbnails |
 
-Delete `data/` to start over; your photos are untouched.
+Delete `data/` to start over; your photos are untouched (keep
+`removed_log.jsonl` if you may want to move cleaned-up copies back).

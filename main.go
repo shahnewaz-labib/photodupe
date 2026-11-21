@@ -99,14 +99,15 @@ func cmdHash(cfg config.Config) {
 		fmt.Fprintf(os.Stderr, "hash: load scan cache (run `scan` first): %v\n", err)
 		os.Exit(1)
 	}
-	pairs := hash.FindPairs(recs, cfg.PHashThreshold, nil)
+	th := pipeline.CacheThreshold(cfg)
+	pairs := hash.FindPairs(recs, th, nil)
 	if err := hash.SavePairs(hash.CachePath, pairs); err != nil {
 		fmt.Fprintf(os.Stderr, "hash: write pairs: %v\n", err)
 		os.Exit(1)
 	}
-	_ = pipeline.SaveMeta(cfg) // record threshold for the loosening warning
-	fmt.Printf("hashed %d images, found %d Tier A pairs (dist <= %d) -> %s\n",
-		len(recs), len(pairs), cfg.PHashThreshold, hash.CachePath)
+	_ = pipeline.SaveMeta(th) // record cached threshold for the loosening warning
+	fmt.Printf("hashed %d images, cached %d Tier A pairs (dist <= %d; clustering uses <= %d) -> %s\n",
+		len(recs), len(pairs), th, cfg.PHashThreshold, hash.CachePath)
 }
 
 func cmdCluster(cfg config.Config) {

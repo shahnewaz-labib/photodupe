@@ -7,100 +7,359 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<header>
-  <h1>photodupe</h1>
-  <nav>
-    <button class="tab active" data-tab="run">Run</button>
-    <button class="tab" data-tab="review">Review</button>
-    <button class="tab" data-tab="settings">Settings</button>
+<header class="topbar">
+  <div class="brand">
+    <span class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24"><rect x="3" y="3" width="13" height="13" rx="2"/><rect x="8" y="8" width="13" height="13" rx="2"/></svg>
+    </span>
+    <span class="brand-name">photodupe</span>
+  </div>
+  <nav aria-label="Steps">
+    <ol class="steps">
+      <li><button type="button" class="step" data-step="choose"><span class="step-num">1</span>Choose photos</button></li>
+      <li><button type="button" class="step" data-step="scan"><span class="step-num">2</span>Scan</button></li>
+      <li><button type="button" class="step" data-step="results"><span class="step-num">3</span>Results</button></li>
+      <li><button type="button" class="step" data-step="save"><span class="step-num">4</span>Save copies</button></li>
+    </ol>
   </nav>
+  <div class="safety">
+    <svg class="icon ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+    Nothing is ever deleted
+  </div>
 </header>
 
-<main>
-  <!-- RUN -->
-  <section id="tab-run" class="panel active">
-    <h2>Run deduplication</h2>
-    <div class="field">
-      <label>Input folder</label>
-      <div class="row">
-        <input type="text" id="input-dir" placeholder="/path/to/photos">
-        <button data-browse="input-dir">Browse…</button>
-      </div>
-    </div>
-    <div class="field">
-      <label>Output folder (keepers copied here)</label>
-      <div class="row">
-        <input type="text" id="output-dir" placeholder="/path/to/output">
-        <button data-browse="output-dir">Browse…</button>
-      </div>
-    </div>
-    <div class="row">
-      <button id="btn-start" class="primary">Start dedup</button>
-      <span id="run-hint" class="hint"></span>
+<main id="app">
+
+  <!-- 1. CHOOSE -->
+  <section id="view-choose" class="view narrow" hidden>
+    <div class="intro">
+      <h1 class="display">Find duplicate photos</h1>
+      <p class="lede">Pick a folder. photodupe finds the extra copies and makes a clean copy of the folder without them.</p>
     </div>
 
-    <div id="progress" class="progress hidden">
-      <div class="progress-head">
-        <strong id="prog-phase">—</strong>
-        <span id="prog-counts"></span>
+    <section class="card stack" aria-label="Photo folder">
+      <div class="field">
+        <label for="in-path" class="field-label">Photo folder</label>
+        <div class="row">
+          <div class="input-wrap">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+            <input id="in-path" type="text" class="mono" placeholder="/path/to/your/photos" autocomplete="off" spellcheck="false">
+          </div>
+          <button type="button" class="btn" data-browse="in-path">Browse…</button>
+        </div>
       </div>
-      <div class="bar"><div id="prog-fill" class="fill"></div></div>
-      <pre id="prog-log" class="log"></pre>
+      <div id="in-info" class="info-strip" hidden></div>
+      <div id="recent-wrap" class="field" hidden>
+        <span class="eyebrow">Recent</span>
+        <div id="recent" class="chips"></div>
+      </div>
+      <div class="row spread divider-top">
+        <div class="field inline">
+          <span class="muted" id="pre-level-label">Match strictness</span>
+          <div id="pre-level" class="seg seg-sm" role="group" aria-labelledby="pre-level-label"></div>
+        </div>
+        <button type="button" id="btn-find" class="btn btn-primary btn-lg" disabled>
+          Find duplicates
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+        </button>
+      </div>
+      <p id="find-error" class="error-text" hidden></p>
+    </section>
+
+    <div class="promises">
+      <div>
+        <svg class="icon icon-lg ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+        <strong>Nothing is ever deleted</strong>
+        <span class="muted">photodupe only reads your folder. It moves a file only when you ask it to clean up groups you approved, and then into a folder you can move back from.</span>
+      </div>
+      <div>
+        <svg class="icon icon-lg ok" viewBox="0 0 24 24" aria-hidden="true"><path d="m2 2 20 20"/><path d="M5.782 5.782A7 7 0 0 0 9 19h8.5a4.5 4.5 0 0 0 1.307-.193"/><path d="M21.532 16.5A4.5 4.5 0 0 0 17.5 10h-1.79A7.008 7.008 0 0 0 10 5.07"/></svg>
+        <strong>Nothing leaves this computer</strong>
+        <span class="muted">No account and no uploads. Everything runs locally.</span>
+      </div>
+      <div>
+        <svg class="icon icon-lg ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+        <strong>Reviewing is optional</strong>
+        <span class="muted">We pick the best copy in each group. Check our picks only if you want to.</span>
+      </div>
     </div>
   </section>
 
-  <!-- REVIEW -->
-  <section id="tab-review" class="panel">
+  <!-- 2. SCAN -->
+  <section id="view-scan" class="view narrow" hidden>
+    <div class="row spread align-end">
+      <div>
+        <p id="scan-path" class="path"></p>
+        <h1 id="scan-title" class="h1">Looking for duplicates…</h1>
+      </div>
+      <span id="scan-eta" class="muted with-icon"></span>
+    </div>
+    <section class="card" aria-label="Progress">
+      <ol id="phases" class="phases"></ol>
+    </section>
+    <div id="scan-error" class="notice notice-error" hidden></div>
     <div class="row spread">
-      <h2>Duplicate clusters</h2>
-      <button id="btn-refresh">Refresh</button>
+      <details class="log-details">
+        <summary class="btn">Show details</summary>
+        <pre id="scan-log" class="log"></pre>
+      </details>
+      <button type="button" id="btn-see-results" class="btn btn-primary btn-lg" hidden>
+        See results
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+      </button>
     </div>
-    <p id="review-empty" class="hint">No clusters yet. Run a dedup first.</p>
-    <div id="clusters"></div>
   </section>
 
-  <!-- SETTINGS -->
-  <section id="tab-settings" class="panel">
-    <h2>Parameters</h2>
-    <div class="field"><label><input type="checkbox" id="phash-enabled"> Enable pHash (Tier A, near-exact)</label></div>
-    <div class="field">
-      <label>pHash threshold (Hamming ≤): <span id="phash-th-val"></span></label>
-      <input type="range" id="phash-threshold" min="0" max="32" step="1">
-    </div>
-    <div class="field"><label><input type="checkbox" id="clip-enabled" disabled> Enable CLIP (Tier B, similar) <span class="hint">— coming soon, not wired yet</span></label></div>
-    <div class="field">
-      <label>CLIP similarity threshold (cosine ≥): <span id="clip-th-val"></span></label>
-      <input type="range" id="clip-threshold" min="0.5" max="1" step="0.01" disabled>
-    </div>
-    <div class="row">
-      <button id="btn-save-config" class="primary">Save params</button>
-      <button id="btn-recluster">Re-cluster (fast)</button>
-      <span id="config-hint" class="hint"></span>
-    </div>
-    <p class="hint">Tightening a threshold re-clusters instantly. Loosening below the last run needs a full re-run.</p>
+  <!-- 3. RESULTS -->
+  <section id="view-results" class="view wide" hidden>
+    <div class="with-aside">
+      <div class="main-col stack-lg">
+        <div>
+          <p id="res-path" class="path"></p>
+          <h1 id="res-title" class="display"></h1>
+          <p id="res-lede" class="lede"></p>
+        </div>
+        <div id="res-tiles" class="tiles"></div>
+        <section id="res-next" class="card stack" aria-labelledby="res-next-h">
+          <div class="stack-sm">
+            <h2 id="res-next-h" class="h2">We picked the best copy in each group</h2>
+            <div id="res-order" class="order-chips"></div>
+          </div>
+          <div class="row wrap gap-lg">
+            <button type="button" id="btn-to-save" class="btn btn-primary btn-lg">
+              Save clean copy
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg>
+            </button>
+            <button type="button" id="btn-to-review" class="btn btn-lg">Review groups</button>
+            <span id="res-look" class="muted with-icon"></span>
+          </div>
+        </section>
+        <section id="res-none" class="card stack" hidden>
+          <h2 class="h2">Nothing to clean up</h2>
+          <p class="muted">Every photo in this folder looks unique at this strictness. Try <strong>Loose</strong> to catch heavier edits, or scan another folder.</p>
+          <div class="row"><button type="button" class="btn" data-go="choose">Scan another folder</button></div>
+        </section>
+        <section id="res-biggest-wrap" class="stack-sm" aria-labelledby="res-biggest-h">
+          <div class="row spread">
+            <h2 id="res-biggest-h" class="h3">Biggest groups</h2>
+            <button type="button" class="link" id="btn-see-all"></button>
+          </div>
+          <div id="res-biggest" class="thumb-grid"></div>
+        </section>
+      </div>
 
-    <h2>Export</h2>
-    <div class="row">
-      <button id="btn-export" class="primary">Copy keepers to output folder</button>
-      <span id="export-hint" class="hint"></span>
+      <aside class="card aside stack" aria-labelledby="strict-h">
+        <div>
+          <h2 id="strict-h" class="h3">Match strictness</h2>
+          <p class="muted">How alike two photos must be to count as copies.</p>
+        </div>
+        <div id="strict-seg" class="seg" role="group" aria-labelledby="strict-h"></div>
+        <p id="strict-help"></p>
+        <ul id="strict-counts" class="kv mono small"></ul>
+        <div id="strict-rescan" class="notice notice-warn" hidden>
+          <span>This level needs a quick re-scan first. Your saved picks are kept where the groups still match.</span>
+          <button type="button" id="btn-rescan" class="btn btn-warn">Re-scan now</button>
+        </div>
+        <hr>
+        <div class="stack-sm">
+          <strong class="medium">Keep priority</strong>
+          <span id="strict-order" class="muted"></span>
+        </div>
+      </aside>
     </div>
+  </section>
+
+  <!-- 3b. REVIEW -->
+  <section id="view-review" class="view full" hidden>
+    <div class="review-bar">
+      <div class="row spread wrap">
+        <div class="row align-base">
+          <button type="button" class="link with-icon" data-go="results">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Results
+          </button>
+          <h1 id="rv-title" class="h2 tight"></h1>
+          <span id="rv-reviewed" class="muted"></span>
+        </div>
+        <div id="rv-tabs" class="tabs" role="tablist" aria-label="Filter groups"></div>
+        <div class="row wrap">
+          <button type="button" id="btn-clean" class="btn" disabled>Clean up approved<span id="clean-count" class="count">0</span></button>
+          <button type="button" id="btn-accept-rest" class="btn btn-primary">Accept the rest and save</button>
+        </div>
+      </div>
+      <div class="bar thin" role="progressbar" aria-label="Review progress" id="rv-progress"><div class="bar-fill"></div></div>
+    </div>
+
+    <div class="review-body">
+      <section class="main-col stack" aria-label="Current group" id="rv-main">
+        <div id="rv-why" class="row wrap gap-sm"></div>
+        <div id="rv-members" class="member-grid"></div>
+        <div class="action-dock">
+          <div class="row dock-nav">
+            <button type="button" id="btn-prev" class="btn btn-lg">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Previous
+            </button>
+            <button type="button" id="btn-compare" class="btn btn-lg">Compare <kbd>Space</kbd></button>
+            <button type="button" id="btn-next" class="btn btn-lg">
+              Skip<svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg>
+            </button>
+          </div>
+          <div class="row dock-verdict">
+            <button type="button" id="btn-decline" class="btn btn-lg btn-decline" aria-pressed="false" title="Not duplicates: keep every photo in this group">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>Decline, keep all <kbd>D</kbd>
+            </button>
+            <button type="button" id="btn-approve" class="btn btn-lg btn-approve" aria-pressed="false" title="Keep the highlighted photo and leave out the rest">
+              <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>Approve <kbd>A</kbd>
+            </button>
+          </div>
+        </div>
+        <div class="keys">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M6 8h.01M10 8h.01M14 8h.01M18 8h.01M8 12h.01M12 12h.01M16 12h.01M7 16h10"/></svg>
+          <span><kbd>1</kbd>–<kbd>9</kbd> choose keeper</span>
+          <span><kbd>A</kbd> approve</span>
+          <span><kbd>D</kbd> decline, keep all</span>
+          <span><kbd>Space</kbd> compare</span>
+          <span><kbd>←</kbd> <kbd>→</kbd> previous / skip</span>
+          <span><kbd>Z</kbd> undo</span>
+        </div>
+      </section>
+      <section id="rv-empty" class="main-col card stack" hidden>
+        <h2 class="h2">No groups here</h2>
+        <p class="muted">Nothing matches this filter. Pick another tab above.</p>
+      </section>
+      <aside class="card aside stack-sm" aria-labelledby="queue-h">
+        <h2 id="queue-h" class="h3">Coming up</h2>
+        <ul id="rv-queue" class="queue"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- 4. SAVE -->
+  <section id="view-save" class="view narrow" hidden>
+    <div id="save-form" class="stack-lg">
+      <div>
+        <button type="button" class="link with-icon" data-go="results">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg>Back to results
+        </button>
+        <h1 class="display">Save your clean copy</h1>
+        <p class="lede">We copy the photos you're keeping into a new folder. Your original folder stays exactly as it is.</p>
+      </div>
+      <section class="card stack-sm" aria-label="Destination">
+        <label for="out-path" class="field-label">Save to</label>
+        <div class="row">
+          <div class="input-wrap">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+            <input id="out-path" type="text" class="mono" autocomplete="off" spellcheck="false">
+          </div>
+          <button type="button" class="btn" data-browse="out-path">Browse…</button>
+        </div>
+        <span id="out-status" class="with-icon"></span>
+      </section>
+      <section class="card stack" aria-labelledby="sum-h">
+        <h2 id="sum-h" class="h3">What will happen</h2>
+        <div id="save-tiles" class="tiles two"></div>
+        <ul id="save-breakdown" class="kv lined"></ul>
+        <p class="muted small">All photos go into one folder. If two share a name, the second gets a number, like <span class="mono">photo (2).jpg</span>.</p>
+      </section>
+      <div class="row spread wrap">
+        <span class="muted with-icon">
+          <svg class="icon ok" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/></svg>
+          Nothing is deleted. You can run this again any time.
+        </span>
+        <button type="button" id="btn-copy" class="btn btn-primary btn-lg">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="8" width="14" height="14" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          <span id="btn-copy-label">Copy photos</span>
+        </button>
+      </div>
+      <p id="save-error" class="error-text" hidden></p>
+    </div>
+
+    <section id="save-progress" class="card stack" aria-label="Copying" hidden>
+      <h1 class="h1">Copying photos…</h1>
+      <div class="row spread muted">
+        <span id="copy-count" class="mono"></span>
+        <span id="copy-eta"></span>
+      </div>
+      <div class="bar" role="progressbar" aria-label="Copying photos" id="copy-bar"><div class="bar-fill"></div></div>
+    </section>
+  </section>
+
+  <!-- DONE -->
+  <section id="view-done" class="view narrow" hidden>
+    <section class="card done-card stack">
+      <span class="done-mark" aria-hidden="true">
+        <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>
+      </span>
+      <h1 id="done-title" class="display"></h1>
+      <p id="done-text" class="lede"></p>
+      <div id="done-stats" class="row wrap center muted gap-lg"></div>
+      <details id="done-errors" class="log-details" hidden>
+        <summary class="btn">Show problems</summary>
+        <pre id="done-errors-log" class="log"></pre>
+      </details>
+      <div class="row wrap center">
+        <button type="button" id="btn-open" class="btn btn-primary btn-lg">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20h16a2 2 0 0 0 2-2V8a2 2 0 0 0-2-2h-7.93a2 2 0 0 1-1.66-.9l-.82-1.2A2 2 0 0 0 7.93 3H4a2 2 0 0 0-2 2v13c0 1.1.9 2 2 2Z"/></svg>
+          Open folder
+        </button>
+        <button type="button" class="btn btn-lg" data-go="choose">Scan another folder</button>
+      </div>
+      <button type="button" class="link" data-go="results">Back to results</button>
+    </section>
   </section>
 </main>
 
-<!-- folder browser modal -->
-<div id="browser" class="modal hidden">
-  <div class="modal-box">
+<!-- folder picker -->
+<div id="browser" class="modal" hidden>
+  <div class="modal-box stack-sm" role="dialog" aria-modal="true" aria-labelledby="browser-title">
     <div class="row spread">
-      <strong id="browser-path"></strong>
-      <button id="browser-close">✕</button>
+      <h2 id="browser-title" class="h3">Choose a folder</h2>
+      <button type="button" id="browser-close" class="btn btn-icon" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
     </div>
-    <ul id="browser-list"></ul>
+    <p id="browser-path" class="path"></p>
+    <ul id="browser-list" class="browser-list"></ul>
     <div class="row spread">
-      <button id="browser-up">⬆ Parent</button>
-      <button id="browser-use" class="primary">Use this folder</button>
+      <button type="button" id="browser-up" class="btn">Up one level</button>
+      <button type="button" id="browser-use" class="btn btn-primary">Use this folder</button>
     </div>
   </div>
 </div>
+
+<!-- side-by-side compare -->
+<div id="compare" class="modal" hidden>
+  <div class="modal-box wide stack-sm" role="dialog" aria-modal="true" aria-labelledby="compare-title">
+    <div class="row spread">
+      <h2 id="compare-title" class="h3">Compare side by side</h2>
+      <button type="button" id="compare-close" class="btn btn-icon" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="compare-grid" class="compare-grid"></div>
+  </div>
+</div>
+
+<!-- clean up approved groups -->
+<div id="clean" class="modal" hidden>
+  <div class="modal-box stack-sm" role="dialog" aria-modal="true" aria-labelledby="clean-title">
+    <div class="row spread">
+      <h2 id="clean-title" class="h3">Clean up approved groups</h2>
+      <button type="button" id="clean-close" class="btn btn-icon" aria-label="Close">
+        <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <p id="clean-text"></p>
+    <p class="path" id="clean-dest"></p>
+    <p class="muted small">Nothing is deleted. Each file keeps its subfolder, and every move is logged in <code>data/removed_log.jsonl</code>, so you can put any of them back. The photo you kept in each group stays where it is.</p>
+    <ul id="clean-failed" class="small error-text" hidden></ul>
+    <div class="row spread">
+      <button type="button" id="clean-cancel" class="btn">Cancel</button>
+      <button type="button" id="clean-go" class="btn btn-primary">Move them</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
 <script src="/static/app.js"></script>
 </body>
